@@ -218,6 +218,13 @@ window.SPECIES = {
         spotnose: { label: "Spotnose", het: { patternStyle: "web" }, super: { patternStyle: "web", pattern: 0.2, label: "Super Spotnose", problem: "Spotnose is in the spider complex and can carry a wobble." } }
       } },
       cinnamon: { type: "incomplete", alleles: { cinnamon: { label: "Cinnamon", het: { red: 0.45, melanin: 0.55 }, super: { melanin: 0.85, pattern: 0.2, label: "Super Cinnamon", problem: "Super Cinnamon (super black pastel complex) often has head and jaw deformities." } } } },
+      blackPastel: { type: "incomplete", alleles: { blackPastel: { label: "Black Pastel", het: { melanin: 0.85 }, super: { melanin: 0.95, pattern: 0.15, label: "Super Black Pastel", problem: "Super Black Pastel often has head and jaw deformities." } } } },
+      pinstripe: { type: "incomplete", alleles: { pinstripe: { label: "Pinstripe", het: { patternStyle: "stripe" }, super: { patternStyle: "stripe", pattern: 0.35, label: "Super Pinstripe" } } } },
+      desertGhost: { type: "incomplete", alleles: { desertGhost: { label: "Desert Ghost", het: { melanin: 0.35, yellow: 0.55 }, super: { melanin: 0.15, pattern: 0.2, label: "Super Desert Ghost" } } } },
+      chocolate: { type: "recessive", alleles: { chocolate: { label: "Chocolate", tags: { red: 0.35, yellow: 0.25, melanin: 0.6 } } } },
+      ultramel: { type: "recessive", alleles: { ultramel: { label: "Ultramel", tags: { melanin: 0.08, yellow: 0.7, red: 0.4, eye: "pink" } } } },
+      calico: { type: "incomplete", alleles: { calico: { label: "Calico", het: { speckle: 1, yellow: 0.7 }, super: { speckle: 1, yellow: 0.85, label: "Super Calico" } } } },
+      acid: { type: "incomplete", alleles: { acid: { label: "Acid", het: { patternStyle: "broken", speckle: 0.7 }, super: { patternStyle: "broken", pattern: 0.3, label: "Super Acid" } } } },
       pied: { type: "incomplete", alleles: { ghi: { label: "GHI", het: { pattern: 0.45, contrast: 1 }, super: { pattern: 0.15, label: "Super GHI" } } } }
     },
     combos: [
