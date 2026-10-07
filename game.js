@@ -123,36 +123,31 @@ function problems(species, genes) {
   return notes;
 }
 
-function snakeSVG(species, genes) {
+function snakeImage(species, genes) {
   const t = visualTags(species, genes);
   const body = SPECIES[species].body;
-  const base = body === "king" ? [20, 70, 30] : body === "hognose" ? [150, 90, 40] : body === "corn" ? [170, 80, 35] : body === "garter" ? [40, 90, 30] : [28, 50, 24];
-  const r = Math.round(40 + 160 * t.red);
-  const g = Math.round(50 + 140 * t.yellow);
-  const b = Math.round(30 + 40 * (1 - t.melanin));
-  const dark = `rgb(${Math.round(20 * t.melanin)},${Math.round(16 * t.melanin)},${Math.round(12 * t.melanin)})`;
-  const fill = t.hue === "lavender" ? `rgb(${140 + r / 4},${110},${170})` : t.hue === "green" ? `rgb(${80},${140 + g / 3},${70})` : `rgb(${r},${g},${b})`;
-  const eye = t.eye === "pink" ? "#e07080" : t.eye === "blue" ? "#7eb6e8" : "#1a120c";
-  const spots = [];
-  const n = t.patternStyle === "stripe" || t.patternStyle === "tessera" ? 1 : 7;
-  for (let i = 0; i < n; i++) {
-    const x = 46 + i * 28;
-    if (t.pattern < 0.12) break;
-    if (t.patternStyle === "stripe") spots.push(`<rect x="40" y="78" width="200" height="${10 + 16 * t.pattern}" rx="6" fill="${dark}" opacity="0.85"/>`);
-    else if (t.patternStyle === "web") spots.push(`<path d="M${x} 70 l18 16 l-18 16 l-8 -16 z" fill="${dark}" opacity="0.8"/>`);
-    else spots.push(`<ellipse cx="${x}" cy="86" rx="${14 * t.pattern + 4}" ry="${10 * t.pattern + 3}" fill="${dark}" opacity="0.8"/>`);
-  }
-  if (t.piebald) spots.push(`<rect x="120" y="62" width="70" height="48" rx="16" fill="#f4f1ea"/>`);
-  const snout = body === "hognose" ? `<path d="M250 78 q18 8 8 16" stroke="#5a4030" stroke-width="3" fill="none"/>` : "";
-  return `<svg viewBox="0 0 280 150" class="snake-svg" aria-hidden="true">
-    <rect width="280" height="150" fill="#10161c"/>
-    <ellipse cx="150" cy="92" rx="118" ry="28" fill="${fill}"/>
-    ${spots.join("")}
-    <circle cx="236" cy="78" r="16" fill="${fill}"/>
-    <circle cx="242" cy="74" r="3.2" fill="${eye}"/>
-    ${snout}
-    <text x="8" y="18" fill="#8b9cb3" font-size="10">${body}</text>
-  </svg>`;
+  const pale = t.melanin < 0.12 && t.red < 0.25 && t.yellow < 0.3;
+  const albino = t.eye === "pink" || t.melanin < 0.15;
+  const gray = t.red < 0.12 && t.yellow < 0.2 && !albino;
+  const black = t.melanin > 0.9;
+  let file = "hognose-normal.jpg";
+  if (body === "hognose") file = pale ? "ball-snow.jpg" : albino ? "hognose-albino.jpg" : gray ? "hognose-axanthic.jpg" : "hognose-normal.jpg";
+  else if (body === "corn") file = pale ? "ball-snow.jpg" : albino ? "corn-albino.jpg" : gray ? "corn-anery.jpg" : "corn-normal.jpg";
+  else if (body === "ball") file = t.piebald ? "ball-piebald.jpg" : pale ? "ball-snow.jpg" : albino ? "ball-albino.jpg" : gray ? "ball-axanthic.jpg" : (t.yellow > 0.7 ? "ball-pastel.jpg" : "ball-normal.jpg");
+  else if (body === "python") file = albino ? "ball-albino.jpg" : gray ? "ball-axanthic.jpg" : "childrens-normal.jpg";
+  else if (species === "Milk Snake") file = albino ? "corn-albino.jpg" : gray ? "corn-anery.jpg" : "milk-normal.jpg";
+  else if (body === "king") file = albino ? "corn-albino.jpg" : gray ? "hognose-axanthic.jpg" : "king-normal.jpg";
+  else if (body === "garter") file = black ? "garter-melanistic.jpg" : albino ? "corn-albino.jpg" : "garter-normal.jpg";
+  else if (body === "sand") file = albino ? "hognose-albino.jpg" : gray ? "hognose-axanthic.jpg" : "sand-normal.jpg";
+  else if (species === "Rosy Boa") file = albino ? "hognose-albino.jpg" : "rosy-normal.jpg";
+  else if (body === "boa") file = albino ? "ball-albino.jpg" : gray ? "ball-axanthic.jpg" : "boa-normal.jpg";
+  return "images/" + file;
+}
+
+function snakeSVG(species, genes) {
+  const src = snakeImage(species, genes);
+  const ph = phenotype(species, genes);
+  return `<img class="snake-photo" src="${src}" alt="${ph} ${species}" style="width:100%;height:140px;object-fit:cover;display:block;border-radius:8px" />`;
 }
 
 function geneSummary(s) {
