@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scaly Legacy — Pet Snake Breeder (v4)</title>
+  <style>
+    :root { --bg:#0f1419; --panel:#1a2332; --panel2:#243044; --accent:#3dd68c; --accent2:#f0b429; --danger:#f07178; --text:#e6edf3; --muted:#8b9cb3; --border:#2d3a4f; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:Segoe UI,system-ui,sans-serif; background:var(--bg); color:var(--text); line-height:1.45; }
+    header { position:sticky; top:0; z-index:100; display:flex; flex-wrap:wrap; gap:.75rem; justify-content:space-between; align-items:center; padding:.75rem 1.1rem; background:#121a24; border-bottom:1px solid var(--border); }
+    .logo { font-weight:700; color:var(--accent); }
+    .logo span { color:var(--accent2); }
+    .stats,.nav { display:flex; gap:.45rem; flex-wrap:wrap; align-items:center; }
+    button { background:var(--panel2); color:var(--text); border:1px solid var(--border); padding:.45rem .8rem; border-radius:6px; cursor:pointer; }
+    button.primary { background:var(--accent); color:#0f1419; font-weight:600; }
+    button.danger { background:transparent; color:var(--danger); border-color:var(--danger); }
+    main { max-width:1100px; margin:0 auto; padding:1.1rem; }
+    .panel,.modal { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:1rem 1.1rem; margin-bottom:1rem; }
+    h2 { color:var(--accent); margin-bottom:.6rem; }
+    h3 { color:var(--accent2); margin:.7rem 0 .3rem; }
+    p,li { color:var(--muted); font-size:.92rem; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:.8rem; }
+    .card { background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:.7rem; display:flex; flex-direction:column; gap:.35rem; }
+    .visual-box { background:#10161c; border-radius:8px; overflow:hidden; min-height:120px; }
+    .visual-box.tall { min-height:160px; }
+    .snake-svg { width:100%; height:130px; display:block; }
+    .badge { display:inline-block; font-size:.72rem; padding:.12rem .35rem; border-radius:4px; background:#2a3a50; color:var(--muted); margin-right:.2rem; }
+    .badge.male { background:#1e3a5f; color:#7eb8ff; }
+    .badge.female { background:#5f1e3a; color:#ff9ec0; }
+    .badge.inbred { background:#4a2a12; color:#ffb070; }
+    .badge.outcross { background:#1e3a2a; color:#8ee0b0; }
+    .gene-tag { font-family:ui-monospace,monospace; font-size:.75rem; color:#9ecbff; }
+    .price { color:var(--accent2); font-weight:700; }
+    .actions { display:flex; gap:.35rem; flex-wrap:wrap; }
+    .actions button { flex:1; }
+    .hidden { display:none !important; }
+    .modal-overlay,.tutorial-overlay { position:fixed; inset:0; background:rgba(0,0,0,.78); display:flex; align-items:center; justify-content:center; z-index:200; padding:.8rem; }
+    .modal { max-width:640px; width:100%; max-height:92vh; overflow:auto; }
+    .modal.wide { max-width:900px; }
+    .close { float:right; background:transparent; border:none; color:var(--muted); font-size:1.3rem; }
+    select { background:var(--panel2); color:var(--text); border:1px solid var(--border); padding:.4rem; border-radius:5px; }
+    table { width:100%; border-collapse:collapse; font-size:.86rem; }
+    td,th { padding:.35rem; border-bottom:1px solid var(--border); text-align:left; }
+    .prob-bar { height:8px; background:#121820; border-radius:4px; }
+    .prob-fill { height:100%; background:var(--accent); }
+    .kin-ok,.advice-box { background:#1a2a1f; border-left:3px solid var(--accent); padding:.7rem .9rem; margin:.5rem 0; }
+    .kin-warn,.warn { background:#2a1a14; border-left:3px solid var(--danger); padding:.55rem .8rem; margin:.4rem 0; color:#f0c2b0; font-size:.82rem; }
+    .toast { position:fixed; bottom:1rem; right:1rem; background:var(--panel2); border:1px solid var(--accent); padding:.6rem .9rem; border-radius:8px; z-index:300; }
+    .fine { font-size:.8rem; }
+    .tutorial-card { background:var(--panel); border:1px solid var(--accent); border-radius:12px; max-width:520px; width:100%; padding:1rem; }
+    .tut-dots { display:flex; gap:.35rem; margin:.7rem 0; }
+    .tut-dots span { width:8px; height:8px; border-radius:50%; background:#2d3a4f; }
+    .tut-dots span.on { background:var(--accent); }
+    .tut-actions { display:flex; gap:.4rem; }
+    .tut-actions button { flex:1; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">Scaly <span>Legacy</span> v4</div>
+    <div class="stats">
+      <div>💰 <strong id="money">$0</strong></div>
+      <div>🐍 <strong id="snakeCount">0</strong></div>
+      <div>Season <strong id="season">1</strong></div>
+      <div id="saveStatus">Not saved</div>
+    </div>
+    <nav>
+      <button onclick="showView('home')">Home</button>
+      <button onclick="showView('shop')">Shop</button>
+      <button onclick="showView('collection')">Collection</button>
+      <button onclick="showView('breed')">Breed</button>
+      <button onclick="showView('genes')">Genes</button>
+      <button onclick="showView('advice')">Advice</button>
+      <button onclick="openTutorial(true)">Tutorial</button>
+      <button onclick="saveGame(true)">Save</button>
+      <button class="danger" onclick="newGame()">New Game</button>
+      <button class="primary" onclick="advanceSeason()">Next Season</button>
+    </nav>
+  </header>
+  <main>
+    <section id="view-home" class="panel">
+      <h2>Welcome, New Breeder</h2>
+      <p>You start with $1,800 and no snakes. v4 separates genes onto real loci and draws each animal from those genes, so a morph that is different looks different. Images are generated references, not photos.</p>
+      <div class="actions"><button onclick="openTutorial(true)">Replay tutorial</button></div>
+      <h3>Quick stats</h3>
+      <p id="homeStats"></p>
+      <h3>Species in this catalog</h3>
+      <ul id="speciesList"></ul>
+    </section>
+    <section id="view-shop" class="panel hidden">
+      <h2>Shop</h2>
+      <p>Captive-bred stock. A few normals of the common species are always listed.</p>
+      <div class="actions">
+        <select id="shopSpeciesFilter" onchange="renderShop()"><option value="">All species</option></select>
+        <button onclick="refreshShopStock()">Refresh stock ($25)</button>
+      </div>
+      <div id="shopGrid" class="grid"></div>
+    </section>
+    <section id="view-collection" class="panel hidden">
+      <h2>Collection</h2>
+      <div class="actions">
+        <select id="collSpeciesFilter" onchange="renderCollection()"><option value="">All species</option></select>
+        <select id="collSexFilter" onchange="renderCollection()"><option value="">Any sex</option><option value="male">Males</option><option value="female">Females</option></select>
+      </div>
+      <div id="collectionGrid" class="grid"></div>
+    </section>
+    <section id="view-breed" class="panel hidden">
+      <h2>Breed</h2>
+      <p>Same species only. Odds respect loci: two alleles of one gene do not behave like two genes.</p>
+      <select id="breedSpecies" onchange="fillBreed()"><option value="">Choose species…</option></select>
+      <div class="grid">
+        <div><h3>Male</h3><select id="breedMale" onchange="updateBreedPreview()"></select><div id="malePreview"></div></div>
+        <div><h3>Female</h3><select id="breedFemale" onchange="updateBreedPreview()"></select><div id="femalePreview"></div></div>
+      </div>
+      <div id="breedPreview" class="panel" style="display:none">
+        <div id="punnettExplain"></div>
+        <div id="outcomeTable"></div>
+        <button class="primary" onclick="doBreed()">Produce clutch</button>
+      </div>
+    </section>
+    <section id="view-genes" class="panel hidden">
+      <h2>Gene catalog</h2>
+      <p>Established alleles for the 12 species in the game. Combo names such as Snow are phenotypes of those genes, not extra loci. Selective lines are listed separately and do not enter the Punnett.</p>
+      <div id="geneIndex"></div>
+    </section>
+    <section id="view-advice" class="panel hidden">
+      <h2>Advice</h2>
+      <div class="advice-box"><strong>Start small.</strong> A pair of normals teaches the loop. Add one gene project after that.</div>
+      <div class="advice-box"><strong>Loci.</strong> Candy and Albino are the same ball-python locus. Motley and Stripe are the same corn locus. Kahl Albino and Sharp Albino are different boa loci, so they can be stacked.</div>
+      <div class="advice-box"><strong>Inbreeding.</strong> Parent-offspring and full siblings are close inbreeds. The game asks before those pairings. Outcross to a shop founder when a line gets tight.</div>
+      <div class="advice-box"><strong>Problem genes.</strong> Spider, Champagne, Woma, and Spotnose can carry a wobble. Super Cinnamon often has jaw defects. Super Jungle often breeds poorly. Those notes are on the animal.</div>
+      <div class="advice-box"><strong>What is not a gene.</strong> Okeetee, green hognose, banana California kingsnake, and locality forms are lines. Paradox is not a color gene.</div>
+    </section>
+  </main>
+  <div id="modalRoot"></div>
+  <div id="tutorialRoot" class="hidden"></div>
+  <div id="toastRoot"></div>
+  <script src="data/genes.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
