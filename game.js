@@ -1,0 +1,641 @@
+const SAVE_KEY = "scalyLegacySave_v4";
+const TUTORIAL_KEY = "scalyLegacyTutorialSeen_v1";
+const STARTING_CASH = 1800;
+
+let state = { money: STARTING_CASH, season: 1, nextId: 1, snakes: [], shop: [], clutches: [] };
+
+function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function moneyFmt(n) { return "$" + Math.round(n).toLocaleString(); }
+function toast(msg) {
+  const root = document.getElementById("toastRoot");
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = msg;
+  root.appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+function emptyGenes(species) {
+  const g = {};
+  Object.keys(SPECIES[species].loci).forEach(locus => { g[locus] = ["+", "+"]; });
+  return g;
+}
+function alleleRank(a) { return a === "+" ? 0 : 1; }
+function normalizePair(pair) {
+  const p = pair.slice();
+  p.sort((a, b) => alleleRank(b) - alleleRank(a) || String(a).localeCompare(String(b)));
+  return p;
+}
+function locusState(pair) {
+  const mutants = pair.filter(a => a !== "+");
+  if (!mutants.length) return "wt";
+  if (mutants.length === 1) return "het";
+  return "super";
+}
+function isVisual(species, genes, locus) {
+  const def = SPECIES[species].loci[locus];
+  const st = locusState(genes[locus] || ["+", "+"]);
+  if (def.type === "recessive") return st === "super";
+  return st === "het" || st === "super";
+}
+
+function phenotype(species, genes) {
+  const sp = SPECIES[species];
+  const parts = [];
+  const used = {};
+  (sp.combos || []).forEach(c => {
+    const ok = Object.entries(c.when).every(([locus, need]) => {
+      const st = locusState(genes[locus] || ["+", "+"]);
+      if (need === "super") return st === "super";
+      if (need === "vis") return isVisual(species, genes, locus);
+      return false;
+    });
+    if (ok) { parts.push(c.label); Object.keys(c.when).forEach(k => used[k] = true); }
+  });
+  Object.keys(sp.loci).forEach(locus => {
+    if (used[locus]) return;
+    const def = sp.loci[locus];
+    const pair = genes[locus] || ["+", "+"];
+    const st = locusState(pair);
+    if (st === "wt") return;
+    const alleleId = pair.find(a => a !== "+");
+    const al = def.alleles[alleleId];
+    if (!al) return;
+    if (def.type === "recessive" && st === "super") parts.push(al.label);
+    if (def.type !== "recessive" && st === "het") parts.push(al.label);
+    if (def.type !== "recessive" && st === "super") parts.push((al.super && al.super.label) || ("Super " + al.label));
+  });
+  const hets = [];
+  Object.keys(sp.loci).forEach(locus => {
+    const def = sp.loci[locus];
+    if (def.type !== "recessive") return;
+    const pair = genes[locus] || ["+", "+"];
+    if (locusState(pair) === "het") {
+      const alleleId = pair.find(a => a !== "+");
+      hets.push("het " + def.alleles[alleleId].label);
+    }
+  });
+  let name = parts.length ? parts.join(" ") : "Normal";
+  if (hets.length) name += " (" + hets.join(", ") + ")";
+  return name;
+}
+
+function visualTags(species, genes) {
+  const tags = { melanin: 0.72, red: 0.45, yellow: 0.4, pattern: 0.8, contrast: 0.4, hue: "", eye: "dark", patternStyle: "blotch", speckle: 0, piebald: 0 };
+  const sp = SPECIES[species];
+  Object.keys(sp.loci).forEach(locus => {
+    const def = sp.loci[locus];
+    const pair = genes[locus] || ["+", "+"];
+    const st = locusState(pair);
+    if (st === "wt") return;
+    const alleleId = pair.find(a => a !== "+");
+    const al = def.alleles[alleleId];
+    if (!al) return;
+    let src = null;
+    if (def.type === "recessive" && st === "super") src = al.tags;
+    if (def.type !== "recessive" && st === "het") src = al.het;
+    if (def.type !== "recessive" && st === "super") src = al.super;
+    if (!src) return;
+    Object.entries(src).forEach(([k, v]) => {
+      if (k === "label" || k === "problem") return;
+      if (typeof v === "number" && typeof tags[k] === "number") tags[k] = v;
+      else tags[k] = v;
+    });
+  });
+  return tags;
+}
+
+function problems(species, genes) {
+  const notes = [];
+  const sp = SPECIES[species];
+  Object.keys(sp.loci).forEach(locus => {
+    const def = sp.loci[locus];
+    const pair = genes[locus] || ["+", "+"];
+    const st = locusState(pair);
+    const alleleId = pair.find(a => a !== "+");
+    if (!alleleId) return;
+    const al = def.alleles[alleleId];
+    if (st === "het" && al.het && al.het.problem) notes.push(al.het.problem);
+    if (st === "super" && al.super && al.super.problem) notes.push(al.super.problem);
+    if (st !== "wt" && al.problem) notes.push(al.problem);
+  });
+  return notes;
+}
+
+function visualAlleles(species, genes) {
+  const ids = [];
+  const sp = SPECIES[species];
+  Object.keys(sp.loci).forEach(locus => {
+    const def = sp.loci[locus];
+    const pair = genes[locus] || ["+", "+"];
+    const st = locusState(pair);
+    if (st === "wt") return;
+    const alleleId = pair.find(a => a !== "+");
+    if (!alleleId) return;
+    if (def.type === "recessive" && st === "super") ids.push(alleleId);
+    if (def.type !== "recessive" && (st === "het" || st === "super")) ids.push(st === "super" ? alleleId + "-super" : alleleId);
+  });
+  return ids;
+}
+
+function snakeImage(species, genes) {
+  const ids = visualAlleles(species, genes);
+  const has = (id) => ids.includes(id);
+  const t = visualTags(species, genes);
+  const body = SPECIES[species].body;
+  let file = "hognose-normal.jpg";
+  if (body === "ball") {
+    if (has("mojave-super") || has("lesser-super") || has("butter-super") || has("phantom-super") || has("bamboo-super") || t.eye === "blue") file = "ball-bel.jpg";
+    else if (has("piebald")) file = "ball-piebald.jpg";
+    else if (has("spider") || has("spider-super") || has("champagne") || has("woma") || has("spotnose")) file = "ball-spider.jpg";
+    else if (has("clown") || has("cryptic")) file = "ball-clown.jpg";
+    else if (has("pinstripe") || has("pinstripe-super") || has("geneticStripe")) file = "ball-pinstripe.jpg";
+    else if (has("blackPastel") || has("blackPastel-super") || has("cinnamon-super")) file = "ball-blackpastel.jpg";
+    else if (has("desertGhost") || has("desertGhost-super")) file = "ball-desert.jpg";
+    else if (t.melanin < 0.12 && t.red < 0.25) file = "ball-snow.jpg";
+    else if (t.eye === "pink" || has("albino") || has("candy") || has("ultramel")) file = "ball-albino.jpg";
+    else if (has("axanthic")) file = "ball-axanthic.jpg";
+    else if (has("pastel") || has("fire") || has("enchi") || has("banana") || t.yellow > 0.7) file = "ball-pastel.jpg";
+    else file = "ball-normal.jpg";
+  } else if (body === "hognose") {
+    if (has("anaconda-super")) file = "hognose-superconda.jpg";
+    else if (has("arctic") || has("arctic-super")) file = "hognose-arctic.jpg";
+    else if (t.melanin < 0.12 && t.red < 0.25) file = "ball-snow.jpg";
+    else if (t.eye === "pink" || has("albino")) file = "hognose-albino.jpg";
+    else if (has("axanthic") || has("anery")) file = "hognose-axanthic.jpg";
+    else file = "hognose-normal.jpg";
+  } else if (body === "corn") {
+    if (has("lavender")) file = "corn-lavender.jpg";
+    else if (has("stripe") || has("motley")) file = "corn-stripe.jpg";
+    else if (t.eye === "pink" || has("amel")) file = "corn-albino.jpg";
+    else if (has("anery") || has("charcoal")) file = "corn-anery.jpg";
+    else file = "corn-normal.jpg";
+  } else if (body === "python") {
+    file = t.eye === "pink" ? "ball-albino.jpg" : has("axanthic") ? "ball-axanthic.jpg" : "childrens-normal.jpg";
+  } else if (species === "Milk Snake") {
+    file = t.eye === "pink" ? "corn-albino.jpg" : has("anery") ? "corn-anery.jpg" : "milk-normal.jpg";
+  } else if (body === "king") {
+    file = has("lavender") ? "king-lavender.jpg" : t.eye === "pink" ? "corn-albino.jpg" : has("striped") ? "corn-stripe.jpg" : "king-normal.jpg";
+  } else if (body === "garter") {
+    file = has("melanistic") ? "garter-melanistic.jpg" : t.eye === "pink" ? "garter-albino.jpg" : "garter-normal.jpg";
+  } else if (body === "sand") {
+    file = t.eye === "pink" ? "sand-albino.jpg" : has("anery") ? "hognose-axanthic.jpg" : "sand-normal.jpg";
+  } else if (species === "Rosy Boa") {
+    file = t.eye === "pink" ? "sand-albino.jpg" : "rosy-normal.jpg";
+  } else if (body === "boa") {
+    file = has("jungle") || has("jungle-super") ? "boa-jungle.jpg" : t.eye === "pink" ? "ball-albino.jpg" : has("anery") ? "ball-axanthic.jpg" : "boa-normal.jpg";
+  }
+  return "images/" + file;
+}
+
+function snakeSVG(species, genes) {
+  const src = snakeImage(species, genes);
+  const ph = phenotype(species, genes);
+  return `<img class="snake-photo" src="${src}" alt="${ph} ${species}" style="width:100%;height:140px;object-fit:cover;display:block;border-radius:8px" />`;
+}
+
+function geneSummary(s) {
+  const sp = SPECIES[s.species];
+  const bits = [];
+  Object.keys(sp.loci).forEach(locus => {
+    const pair = s.genes[locus] || ["+", "+"];
+    if (locusState(pair) === "wt") return;
+    const names = pair.filter(a => a !== "+").map(a => sp.loci[locus].alleles[a].label);
+    bits.push(names.join("/") + ":" + pair.join("/"));
+  });
+  return bits.join(" · ") || "wild-type";
+}
+
+function makeSnake(species, sex, genes, source) {
+  const id = state.nextId++;
+  const s = {
+    id, species, sex,
+    genes: genes || emptyGenes(species),
+    name: species.split(" ")[0] + "-" + id,
+    age: source === "hatch" ? 0 : rand(1, 3),
+    source: source || "shop",
+    sireId: null, damId: null,
+    founders: [id], ancestors: [id],
+    inbredLevel: "none", inbredLabel: "Founder / unrelated stock"
+  };
+  s.pheno = phenotype(species, s.genes);
+  s.value = snakeValue(s);
+  s.problems = problems(species, s.genes);
+  return s;
+}
+
+function snakeValue(s) {
+  let v = SPECIES[s.species].basePrice;
+  const sp = SPECIES[s.species];
+  Object.keys(sp.loci).forEach(locus => {
+    const def = sp.loci[locus];
+    const st = locusState(s.genes[locus] || ["+", "+"]);
+    if (def.type === "recessive") {
+      if (st === "super") v += sp.basePrice * 1.8;
+      else if (st === "het") v += sp.basePrice * 0.45;
+    } else if (st === "super") v += sp.basePrice * 2.2;
+    else if (st === "het") v += sp.basePrice * 1.15;
+  });
+  if ((s.pheno || "").includes("Blue-Eyed") || (s.pheno || "").includes("Yeti")) v += 180;
+  else if ((s.pheno || "").includes("Snow")) v += 100;
+  return Math.max(20, Math.round(v));
+}
+
+function randomGenes(species, forceVisual) {
+  const g = emptyGenes(species);
+  const loci = Object.keys(SPECIES[species].loci);
+  if (!forceVisual && Math.random() < 0.36) return g;
+  const n = Math.random() < 0.16 ? 2 : 1;
+  loci.slice().sort(() => Math.random() - 0.5).slice(0, n).forEach(locus => {
+    const def = SPECIES[species].loci[locus];
+    const allele = pick(Object.keys(def.alleles));
+    if (def.type === "recessive") g[locus] = Math.random() < 0.55 || forceVisual ? [allele, allele] : [allele, "+"];
+    else g[locus] = Math.random() < 0.14 ? [allele, allele] : [allele, "+"];
+    g[locus] = normalizePair(g[locus]);
+  });
+  return g;
+}
+
+function gamete(pair) { return pair[Math.random() < 0.5 ? 0 : 1]; }
+function combineLocus(a, b) { return normalizePair([a, b]); }
+
+function breedChildGenes(male, female) {
+  const genes = {};
+  Object.keys(SPECIES[male.species].loci).forEach(locus => {
+    genes[locus] = combineLocus(gamete(male.genes[locus]), gamete(female.genes[locus]));
+  });
+  return genes;
+}
+
+function predictOutcomes(male, female) {
+  const loci = Object.keys(SPECIES[male.species].loci).filter(locus => {
+    return locusState(male.genes[locus]) !== "wt" || locusState(female.genes[locus]) !== "wt";
+  });
+  if (!loci.length) return { Normal: 1 };
+  const counts = {};
+  const n = loci.length > 5 ? 2400 : 800;
+  for (let i = 0; i < n; i++) {
+    const genes = emptyGenes(male.species);
+    loci.forEach(locus => { genes[locus] = combineLocus(gamete(male.genes[locus]), gamete(female.genes[locus])); });
+    const ph = phenotype(male.species, genes);
+    counts[ph] = (counts[ph] || 0) + 1;
+  }
+  const out = {};
+  Object.keys(counts).forEach(k => out[k] = counts[k] / n);
+  return out;
+}
+
+function pairRelationship(male, female) {
+  if (female.sireId === male.id || female.damId === male.id || male.sireId === female.id || male.damId === female.id) {
+    return { level: "close", title: "Parent × offspring", detail: "Close inbreed. Hidden harmful alleles are much more likely to pair.", coef: 0.25, offspringLabel: "Close inbred (parent × offspring)" };
+  }
+  if (male.sireId && female.sireId && male.sireId === female.sireId && male.damId && female.damId && male.damId === female.damId) {
+    return { level: "close", title: "Full siblings", detail: "Same sire and dam. High risk of stacking hidden problems.", coef: 0.25, offspringLabel: "Close inbred (full siblings)" };
+  }
+  if ((male.sireId && (male.sireId === female.sireId || male.sireId === female.damId)) || (male.damId && (male.damId === female.sireId || male.damId === female.damId))) {
+    return { level: "moderate", title: "Half siblings", detail: "They share one parent. Plan an outcross later.", coef: 0.125, offspringLabel: "Line-bred (half siblings)" };
+  }
+  const shared = (male.founders || []).filter(id => (female.founders || []).includes(id));
+  if (shared.length) return { level: "mild", title: "Same founder line", detail: "They share " + shared.length + " founder animal(s). Mild line-breeding.", coef: 0.0625, offspringLabel: "Line-bred (shared founder)" };
+  return { level: "none", title: "Unrelated pair", detail: "No shared parents or founders in this colony.", coef: 0, offspringLabel: "Outcross" };
+}
+
+function applyLineage(child, male, female, rel) {
+  child.sireId = male.id;
+  child.damId = female.id;
+  child.founders = Array.from(new Set([].concat(male.founders || [], female.founders || []))).slice(0, 24);
+  child.ancestors = Array.from(new Set([male.id, female.id].concat(male.ancestors || [], female.ancestors || []))).slice(0, 32);
+  child.inbredLevel = rel.level;
+  child.inbredLabel = rel.offspringLabel;
+  if (rel.coef >= 0.25) child.value = Math.round(child.value * 0.88);
+  child.problems = problems(child.species, child.genes);
+  return child;
+}
+
+function generateShopStock() {
+  const list = [];
+  const names = Object.keys(SPECIES);
+  for (let i = 0; i < 12; i++) {
+    const sp = pick(names);
+    const s = makeSnake(sp, Math.random() < 0.5 ? "male" : "female", randomGenes(sp, Math.random() < 0.45), "shop");
+    s.price = Math.round(s.value * (0.95 + Math.random() * 0.25));
+    list.push(s);
+  }
+  ["Corn Snake", "Ball Python", "Western Hognose", "California Kingsnake", "Eastern Hognose", "Southern Hognose"].forEach((sp, i) => {
+    const s = makeSnake(sp, i % 2 ? "female" : "male", emptyGenes(sp), "shop");
+    s.price = Math.round(SPECIES[sp].basePrice * 0.9);
+    list.push(s);
+  });
+  state.shop = list;
+}
+
+function showView(name) {
+  ["home", "shop", "collection", "breed", "genes", "advice", "profile"].forEach(v => {
+    const el = document.getElementById("view-" + v);
+    if (el) el.classList.toggle("hidden", v !== name);
+  });
+  if (name === "shop") renderShop();
+  if (name === "collection") { renderCollection(); fillBreed(); }
+  if (name === "genes") renderGeneIndex();
+}
+function updateHeader() {
+  document.getElementById("money").textContent = moneyFmt(state.money);
+  document.getElementById("snakeCount").textContent = state.snakes.length;
+  document.getElementById("season").textContent = state.season;
+}
+function cardHTML(s, mode) {
+  const badge = s.inbredLevel && s.inbredLevel !== "none" ? `<span class="badge inbred">${s.inbredLevel === "close" ? "Close inbred" : "Line-bred"}</span>` : (s.source === "hatch" ? `<span class="badge outcross">Outcross</span>` : "");
+  const warn = (s.problems || []).length ? `<div class="warn">${s.problems[0]}</div>` : "";
+  return `<div class="card">
+    <div class="visual-box">${snakeSVG(s.species, s.genes)}</div>
+    <div class="card-title">${s.pheno}</div>
+    <div><span class="badge">${s.species}</span><span class="badge ${s.sex}">${s.sex}</span><span class="badge">Age ${s.age}</span>${badge}</div>
+    <div class="gene-tag">${geneSummary(s)}</div>
+    ${warn}
+    <div class="price">${moneyFmt(mode === "shop" ? s.price : s.value)}</div>
+    <div class="actions">
+      ${mode === "shop"
+        ? `<button class="primary" onclick="buySnake(${s.id})">Buy</button><button onclick="showDetail(${s.id},'shop')">View</button>`
+        : `<button onclick="showDetail(${s.id},'collection')">Details</button><button class="danger" onclick="sellSnake(${s.id})">Sell</button>`}
+    </div>
+  </div>`;
+}
+function renderShop() {
+  const filter = document.getElementById("shopSpeciesFilter").value;
+  let list = state.shop;
+  if (filter) list = list.filter(s => s.species === filter);
+  document.getElementById("shopGrid").innerHTML = list.map(s => cardHTML(s, "shop")).join("") || "<p>No stock matches.</p>";
+}
+function renderCollection() {
+  document.getElementById("homeStats").innerHTML = `Cash <strong>${moneyFmt(state.money)}</strong> · Snakes <strong>${state.snakes.length}</strong> · Eggs <strong>${(state.clutches || []).reduce((n, c) => n + c.eggs.length, 0)}</strong> · Season ${state.season}`;
+  document.getElementById("clutchBoard").innerHTML = (state.clutches || []).map(c => {
+    const wait = c.ready > state.season;
+    return `<div class="advice-box"><strong>${c.eggs.length} ${c.species} eggs</strong> — ${c.sireName} × ${c.damName}. ${wait ? `Hatches season ${c.ready}.` : "Ready."} ${wait ? "" : `<button class="primary" onclick="openClutch(${c.id})">Open clutch</button>`}</div>`;
+  }).join("") || "<p>No eggs in the incubator.</p>";
+  const sp = document.getElementById("collSpeciesFilter").value;
+  const sex = document.getElementById("collSexFilter").value;
+  let list = state.snakes.filter(s => (!sp || s.species === sp) && (!sex || s.sex === sex));
+  document.getElementById("collectionGrid").innerHTML = list.map(s => cardHTML(s, "collection")).join("") || "<p>No snakes yet. Buy your first animals in the Shop.</p>";
+}
+function renderHome() {
+  document.getElementById("homeStats").innerHTML = `Cash <strong>${moneyFmt(state.money)}</strong> · Snakes <strong>${state.snakes.length}</strong> · Season ${state.season}`;
+  document.getElementById("speciesList").innerHTML = Object.keys(SPECIES).map(sp => {
+    const n = Object.values(SPECIES[sp].loci).reduce((a, l) => a + Object.keys(l.alleles).length, 0);
+    return `<li><strong>${sp}</strong> <em>(${SPECIES[sp].sci})</em> — ${n} alleles</li>`;
+  }).join("");
+}
+function renderGeneIndex() {
+  document.getElementById("geneIndex").innerHTML = Object.keys(SPECIES).map(sp => {
+    const loci = SPECIES[sp].loci;
+    const rows = Object.keys(loci).map(locus => {
+      const def = loci[locus];
+      const alleles = Object.values(def.alleles).map(a => a.label).join(", ");
+      return `<li><strong>${alleles}</strong> — ${def.type === "recessive" ? "hidden unless both copies match" : "shows with one copy; two copies is the super"}${Object.keys(def.alleles).length > 1 ? " (same gene slot)" : ""}</li>`;
+    }).join("");
+    const lines = (SPECIES[sp].lines || []).map(l => `<li>${l}</li>`).join("");
+    return `<h3>${sp}</h3><ul>${rows}</ul>${lines ? `<p>Lines, not genes:</p><ul>${lines}</ul>` : ""}`;
+  }).join("");
+}
+function fillSpeciesSelects() {
+  const opts = Object.keys(SPECIES).map(sp => `<option value="${sp}">${sp}</option>`).join("");
+  ["shopSpeciesFilter", "collSpeciesFilter", "breedSpecies"].forEach(id => {
+    const el = document.getElementById(id);
+    const first = el.querySelector("option").outerHTML;
+    el.innerHTML = first + opts;
+  });
+}
+function buySnake(id) {
+  const idx = state.shop.findIndex(s => s.id === id);
+  if (idx < 0) return;
+  const s = state.shop[idx];
+  if (state.money < s.price) { toast("Not enough money."); return; }
+  state.money -= s.price;
+  state.shop.splice(idx, 1);
+  const owned = makeSnake(s.species, s.sex, s.genes, "bought");
+  owned.name = s.name; owned.age = s.age; owned.value = s.value; owned.price = undefined;
+  owned.founders = [owned.id]; owned.ancestors = [owned.id];
+  state.snakes.push(owned);
+  updateHeader(); renderShop(); saveGame(false);
+  toast("Purchased " + owned.pheno + " " + owned.species);
+}
+function sellSnake(id) {
+  const idx = state.snakes.findIndex(s => s.id === id);
+  if (idx < 0) return;
+  const s = state.snakes[idx];
+  state.money += s.value;
+  state.snakes.splice(idx, 1);
+  updateHeader(); renderCollection(); saveGame(false);
+  toast("Sold for " + moneyFmt(s.value));
+}
+function refreshShopStock() {
+  if (state.money < 25) { toast("Need $25 to refresh."); return; }
+  state.money -= 25;
+  generateShopStock();
+  updateHeader(); renderShop(); saveGame(false);
+}
+function showDetail(id, from) {
+  const pool = from === "shop" ? state.shop : state.snakes;
+  const s = pool.find(x => x.id === id);
+  if (!s) return;
+  const probs = (s.problems || []).map(p => `<p class="warn">${p}</p>`).join("");
+  document.getElementById("modalRoot").innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+    <div class="modal"><button class="close" onclick="closeModal()">×</button>
+      <h2>${s.pheno}</h2>
+      <p><span class="badge">${s.species}</span> <span class="badge ${s.sex}">${s.sex}</span></p>
+      <div class="visual-box tall">${snakeSVG(s.species, s.genes)}</div>
+      <p class="fine">Generated reference from this animal's genes. Not a photo of a specific snake.</p>
+      <h3>Genetics</h3><p class="gene-tag">${geneSummary(s)}</p>
+      <h3>Pedigree</h3><p>${s.inbredLabel}</p>
+      <p class="fine">Sire #${s.sireId || "—"} · Dam #${s.damId || "—"} · Founders ${(s.founders || []).join(", ")}</p>
+      ${probs}
+      <p>${SPECIES[s.species].note}</p>
+      <p><strong>${moneyFmt(from === "shop" ? s.price : s.value)}</strong></p>
+    </div></div>`;
+}
+function closeModal() { document.getElementById("modalRoot").innerHTML = ""; }
+
+function fillBreed() {
+  const sp = document.getElementById("breedSpecies").value;
+  const maleSel = document.getElementById("breedMale");
+  const femaleSel = document.getElementById("breedFemale");
+  maleSel.innerHTML = ""; femaleSel.innerHTML = "";
+  if (!sp) { document.getElementById("breedPreview").style.display = "none"; return; }
+  state.snakes.filter(s => s.species === sp && s.sex === "male").forEach(s => maleSel.insertAdjacentHTML("beforeend", `<option value="${s.id}">#${s.id} ${s.pheno}</option>`));
+  state.snakes.filter(s => s.species === sp && s.sex === "female").forEach(s => femaleSel.insertAdjacentHTML("beforeend", `<option value="${s.id}">#${s.id} ${s.pheno}</option>`));
+  if (!maleSel.options.length) maleSel.innerHTML = "<option value=''>No males</option>";
+  if (!femaleSel.options.length) femaleSel.innerHTML = "<option value=''>No females</option>";
+  updateBreedPreview();
+}
+function updateBreedPreview() {
+  const male = state.snakes.find(s => s.id === +document.getElementById("breedMale").value);
+  const female = state.snakes.find(s => s.id === +document.getElementById("breedFemale").value);
+  const box = document.getElementById("breedPreview");
+  if (!male || !female) { box.style.display = "none"; return; }
+  box.style.display = "block";
+  const rel = pairRelationship(male, female);
+  const outcomes = predictOutcomes(male, female);
+  const rows = Object.entries(outcomes).sort((a, b) => b[1] - a[1]).map(([ph, p]) => {
+    const pct = (p * 100).toFixed(1);
+    return `<tr><td>${ph}</td><td>${pct}%</td><td><div class="prob-bar"><div class="prob-fill" style="width:${pct}%"></div></div></td></tr>`;
+  }).join("");
+  const bits = [];
+  Object.keys(SPECIES[male.species].loci).forEach(locus => {
+    const def = SPECIES[male.species].loci[locus];
+    const lm = male.genes[locus], lf = female.genes[locus];
+    if (locusState(lm) === "wt" && locusState(lf) === "wt") return;
+    const alleleNames = Object.values(def.alleles).map(a => a.label).join(" / ");
+    bits.push(`<strong>${alleleNames}</strong> (${def.type === "recessive" ? "hidden gene" : "shows with one copy"}${Object.keys(def.alleles).length > 1 ? ", same slot" : ""}): ${lm.join("/")} × ${lf.join("/")}`);
+  });
+  document.getElementById("punnettExplain").innerHTML =
+    `<div class="${rel.level === "none" ? "kin-ok" : "kin-warn"}"><strong>${rel.title}</strong><br>${rel.detail}</div>` +
+    (bits.join("<br>") || "Both parents are wild-type for modeled genes.");
+  document.getElementById("outcomeTable").innerHTML = `<table><tr><th>Phenotype</th><th>Chance</th><th></th></tr>${rows}</table>`;
+  document.getElementById("malePreview").innerHTML = snakeSVG(male.species, male.genes);
+  document.getElementById("femalePreview").innerHTML = snakeSVG(female.species, female.genes);
+}
+function doBreed() {
+  const male = state.snakes.find(s => s.id === +document.getElementById("breedMale").value);
+  const female = state.snakes.find(s => s.id === +document.getElementById("breedFemale").value);
+  if (!male || !female) return;
+  const rel = pairRelationship(male, female);
+  if (rel.level === "close" || rel.level === "moderate") {
+    if (!confirm(rel.title + ". " + rel.detail + " Breed anyway?")) return;
+  }
+  const [lo, hi] = SPECIES[male.species].clutch;
+  const n = rel.level === "close" ? rand(lo, Math.max(lo, hi - 2)) : rand(lo, hi);
+  const eggs = [];
+  for (let i = 0; i < n; i++) {
+    const child = makeSnake(male.species, Math.random() < 0.5 ? "male" : "female", breedChildGenes(male, female), "hatch");
+    eggs.push({ ...applyLineage(child, male, female, rel), opened: false, decided: false });
+  }
+  state.clutches = state.clutches || [];
+  state.clutches.push({ id: state.nextId++, species: male.species, sireName: male.pheno, damName: female.pheno, laid: state.season, ready: state.season + 1, eggs });
+  saveGame(false);
+  renderCollection();
+  toast(eggs.length + " eggs laid. They hatch next season.");
+}
+function openClutch(id) {
+  const clutch = (state.clutches || []).find(c => c.id === id);
+  if (!clutch || clutch.ready > state.season) { closeModal(); renderCollection(); return; }
+  window._openClutch = clutch.id;
+  const cards = clutch.eggs.map((s, i) => s.opened
+    ? `<div class="card reveal" id="egg-${i}">${snakeSVG(s.species, s.genes)}<div class="card-title">${s.pheno}</div><span class="badge ${s.sex}">${s.sex}</span><div class="price">${moneyFmt(s.value)}</div><div class="actions">${s.decided || `<button class="primary" onclick="keepHatch(${i})">Keep</button><button onclick="sellHatch(${i})">Sell</button>`}</div></div>`
+    : `<div class="card" id="egg-${i}"><button class="egg" onclick="revealEgg(${i})">Egg ${i + 1}<br>Open</button></div>`).join("");
+  document.getElementById("modalRoot").innerHTML = `<div class="modal-overlay"><div class="modal wide"><h2>${clutch.species} clutch</h2><p>${clutch.sireName} × ${clutch.damName}. Open the eggs one at a time.</p><div class="grid">${cards}</div><div class="actions"><button onclick="closeModal();renderCollection();">Close</button></div></div></div>`;
+}
+function revealEgg(i) {
+  const clutch = (state.clutches || []).find(c => c.id === window._openClutch);
+  if (!clutch || clutch.eggs[i].opened) return;
+  clutch.eggs[i].opened = true;
+  saveGame(false);
+  openClutch(clutch.id);
+}
+function keepHatch(i) {
+  const clutch = (state.clutches || []).find(c => c.id === window._openClutch);
+  if (!clutch || clutch.eggs[i].decided) return;
+  state.snakes.push(clutch.eggs[i]);
+  clutch.eggs[i].decided = "Kept";
+  if (clutch.eggs.every(e => e.decided)) state.clutches = state.clutches.filter(c => c.id !== clutch.id);
+  updateHeader(); saveGame(false); openClutch(clutch.id);
+}
+function sellHatch(i) {
+  const clutch = (state.clutches || []).find(c => c.id === window._openClutch);
+  if (!clutch || clutch.eggs[i].decided) return;
+  state.money += clutch.eggs[i].value;
+  clutch.eggs[i].decided = "Sold";
+  if (clutch.eggs.every(e => e.decided)) state.clutches = state.clutches.filter(c => c.id !== clutch.id);
+  updateHeader(); saveGame(false); openClutch(clutch.id);
+}
+function advanceSeason() {
+  state.season++;
+  state.snakes.forEach(s => s.age++);
+  const upkeep = state.snakes.length * 8;
+  state.money = Math.max(0, state.money - upkeep);
+  generateShopStock();
+  updateHeader(); saveGame(false);
+  const ready = (state.clutches || []).filter(c => c.ready <= state.season);
+  toast("Season " + state.season + (upkeep ? " — upkeep " + moneyFmt(upkeep) : "") + (ready.length ? " — " + ready.length + " clutch" + (ready.length > 1 ? "es" : "") + " ready" : ""));
+  showView("collection");
+  if (ready.length) openClutch(ready[0].id);
+}
+
+function migrateSnake(s) {
+  if (!s || !SPECIES[s.species]) return null;
+  const g = emptyGenes(s.species);
+  Object.keys(s.genes || {}).forEach(k => {
+    if (Array.isArray(s.genes[k])) g[k] = normalizePair(s.genes[k]);
+  });
+  s.genes = g;
+  s.pheno = phenotype(s.species, s.genes);
+  s.problems = problems(s.species, s.genes);
+  if (!s.founders) s.founders = [s.id];
+  if (!s.ancestors) s.ancestors = [s.id];
+  return s;
+}
+function saveGame(manual) {
+  const payload = { version: 4, savedAt: new Date().toISOString(), money: state.money, season: state.season, nextId: state.nextId, snakes: state.snakes, shop: state.shop, clutches: state.clutches || [] };
+  localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+  document.getElementById("saveStatus").textContent = (manual ? "Saved " : "Auto-saved ") + new Date().toLocaleTimeString();
+  if (manual) toast("Game saved in this browser.");
+}
+function loadGame() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    state.money = data.money;
+    state.season = data.season || 1;
+    state.nextId = data.nextId || 1;
+    state.snakes = (data.snakes || []).map(migrateSnake).filter(Boolean);
+    state.shop = (data.shop || []).map(migrateSnake).filter(Boolean);
+    state.clutches = data.clutches || [];
+    if (!state.shop.length) generateShopStock();
+    document.getElementById("saveStatus").textContent = "Loaded save";
+    return true;
+  } catch (err) { return false; }
+}
+function newGame() {
+  if (!confirm("Start a new game? This deletes the v4 save in this browser.")) return;
+  localStorage.removeItem(SAVE_KEY);
+  state = { money: STARTING_CASH, season: 1, nextId: 1, snakes: [], shop: [], clutches: [] };
+  generateShopStock();
+  updateHeader(); showView("collection"); saveGame(false);
+  toast("New game — $1,800 and no snakes.");
+}
+
+const TUTORIAL_STEPS = [
+  ["You start with cash, not snakes", "You begin with $1,800 and an empty rack. Buy a pair, lay eggs, and wait a season to open them."],
+  ["Shop", "Buy a male and a female of the same species. Normals are the cheap lesson. A visual or a hidden carrier costs more."],
+  ["Gene slots", "A gene slot is where a gene sits. Two names in one slot are versions of the same gene. Albino and Candy share a slot, so that pairing is not a sure visual. Motley and Stripe share the corn pattern slot."],
+  ["Eggs wait a season", "Lay eggs on the Collection page. Next Season hatches them. Open each egg to see what you got, then keep or sell."],
+  ["Looks follow the genes", "A visual morph uses its own picture. A hidden carrier still looks like a normal. These are generated references, not photos of a real snake."],
+  ["Inbreeding and problem genes", "Close relatives are flagged. Spider-complex genes note a wobble. Super Cinnamon and Super Jungle note known problems."],
+  ["Save stays in this browser", "Profile holds Save, New Game, and this tutorial. New Game wipes this browser's colony."]
+];
+function closeTutorial() {
+  try { localStorage.setItem(TUTORIAL_KEY, "1"); } catch (err) {}
+  document.getElementById("tutorialRoot").classList.add("hidden");
+  document.getElementById("tutorialRoot").innerHTML = "";
+}
+function renderTutorial(i) {
+  const step = TUTORIAL_STEPS[i];
+  const dots = TUTORIAL_STEPS.map((_, n) => `<span class="${n === i ? "on" : ""}"></span>`).join("");
+  const root = document.getElementById("tutorialRoot");
+  root.classList.remove("hidden");
+  root.innerHTML = `<div class="tutorial-overlay"><div class="tutorial-card"><div class="tut-step">Tutorial ${i + 1} of ${TUTORIAL_STEPS.length}</div><h2>${step[0]}</h2><p>${step[1]}</p><div class="tut-dots">${dots}</div><div class="tut-actions"><button onclick="closeTutorial()">Skip</button>${i ? `<button onclick="renderTutorial(${i - 1})">Back</button>` : ""}${i < TUTORIAL_STEPS.length - 1 ? `<button class="primary" onclick="renderTutorial(${i + 1})">Next</button>` : `<button class="primary" onclick="closeTutorial()">Start breeding</button>`}</div></div></div>`;
+}
+function openTutorial(force) {
+  let seen = false;
+  try { seen = localStorage.getItem(TUTORIAL_KEY) === "1"; } catch (err) {}
+  if (!force && seen) return;
+  renderTutorial(0);
+}
+function init() {
+  fillSpeciesSelects();
+  if (!loadGame()) { generateShopStock(); document.getElementById("saveStatus").textContent = "Not saved"; }
+  updateHeader(); showView("collection"); fillBreed();
+  window.addEventListener("beforeunload", () => saveGame(false));
+  openTutorial(false);
+}
+init();
