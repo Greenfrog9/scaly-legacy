@@ -157,6 +157,7 @@ function snakeImage(species, genes) {
     else if (t.eye === "pink" || has("albino") || has("candy") || has("ultramel")) file = "ball-albino.jpg";
     else if (has("axanthic")) file = "ball-axanthic.jpg";
     else if (has("pastel") || has("fire") || has("enchi") || has("banana") || t.yellow > 0.7) file = "ball-pastel.jpg";
+    else if (has("phantom")) file = "ball-phantom.jpg";
     else file = "ball-normal.jpg";
   } else if (body === "hognose") {
     if (has("anaconda-super")) file = "hognose-superconda.jpg";
@@ -164,6 +165,8 @@ function snakeImage(species, genes) {
     else if (t.melanin < 0.12 && t.red < 0.25) file = "ball-snow.jpg";
     else if (t.eye === "pink" || has("albino")) file = "hognose-albino.jpg";
     else if (has("axanthic") || has("anery")) file = "hognose-axanthic.jpg";
+    else if (species === "Eastern Hognose") file = "eastern-hognose-normal.jpg";
+    else if (species === "Southern Hognose") file = "southern-hognose-normal.jpg";
     else file = "hognose-normal.jpg";
   } else if (body === "corn") {
     if (has("lavender")) file = "corn-lavender.jpg";
@@ -174,7 +177,7 @@ function snakeImage(species, genes) {
   } else if (body === "python") {
     file = t.eye === "pink" ? "ball-albino.jpg" : has("axanthic") ? "ball-axanthic.jpg" : "childrens-normal.jpg";
   } else if (species === "Milk Snake") {
-    file = t.eye === "pink" ? "corn-albino.jpg" : has("anery") ? "corn-anery.jpg" : "milk-normal.jpg";
+    file = t.eye === "pink" ? "corn-albino.jpg" : has("anery") ? "corn-anery.jpg" : has("tangerine") ? "milk-tangerine.jpg" : "milk-normal.jpg";
   } else if (body === "king") {
     file = has("lavender") ? "king-lavender.jpg" : t.eye === "pink" ? "corn-albino.jpg" : has("striped") ? "corn-stripe.jpg" : "king-normal.jpg";
   } else if (body === "garter") {
@@ -200,9 +203,11 @@ function geneSummary(s) {
   const bits = [];
   Object.keys(sp.loci).forEach(locus => {
     const pair = s.genes[locus] || ["+", "+"];
-    if (locusState(pair) === "wt") return;
-    const names = pair.filter(a => a !== "+").map(a => sp.loci[locus].alleles[a].label);
-    bits.push(names.join("/") + ":" + pair.join("/"));
+    const st = locusState(pair);
+    if (st === "wt") return;
+    const labels = pair.filter(a => a !== "+").map(a => (sp.loci[locus].alleles[a] || {}).label || a);
+    if (st === "het") bits.push(labels[0] + " +");
+    else bits.push(labels[0] + " / " + (labels[1] || labels[0]));
   });
   return bits.join(" · ") || "wild-type";
 }
