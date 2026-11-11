@@ -179,7 +179,7 @@ function snakeImage(species, genes) {
   } else if (species === "Milk Snake") {
     file = t.eye === "pink" ? "corn-albino.jpg" : has("anery") ? "corn-anery.jpg" : has("tangerine") ? "milk-tangerine.jpg" : "milk-normal.jpg";
   } else if (body === "king") {
-    file = has("lavender") ? "king-lavender.jpg" : t.eye === "pink" ? "corn-albino.jpg" : has("striped") ? "corn-stripe.jpg" : "king-normal.jpg";
+    file = has("lavender") ? "king-lavender.jpg" : t.eye === "pink" || has("albino") ? "king-albino.jpg" : has("striped") ? "corn-stripe.jpg" : "king-normal.jpg";
   } else if (body === "garter") {
     file = has("melanistic") ? "garter-melanistic.jpg" : t.eye === "pink" ? "garter-albino.jpg" : "garter-normal.jpg";
   } else if (body === "sand") {
