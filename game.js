@@ -207,17 +207,33 @@ function snakeImage(species, genes) {
     else if (has("anery") || has("charcoal")) file = "corn-anery.jpg";
     else file = "corn-normal.jpg";
   } else if (body === "python") {
-    file = t.eye === "pink" ? "childrens-albino.jpg" : has("axanthic") ? "childrens-axanthic.jpg" : "childrens-normal.jpg";
+    if (has("albino") && has("axanthic")) file = "childrens-snow.jpg";
+    else if (has("platinum")) file = "childrens-platinum.jpg";
+    else if (has("granite")) file = "childrens-granite.jpg";
+    else if (has("axanthic")) file = "childrens-axanthic.jpg";
+    else if (has("tPlus")) file = "childrens-tplus.jpg";
+    else if (has("tMinus")) file = "childrens-tminus.jpg";
+    else if (t.eye === "pink" || has("albino")) file = "childrens-albino.jpg";
+    else file = "childrens-normal.jpg";
   } else if (species === "Milk Snake") {
-    file = t.eye === "pink" ? "milk-albino.jpg" : has("anery") ? "milk-anery.jpg" : has("tangerine") ? "milk-tangerine.jpg" : "milk-normal.jpg";
+    if (has("albino") && has("anery")) file = "milk-snow.jpg";
+    else file = has("tangerine") ? "milk-tangerine.jpg" : has("anery") ? "milk-anery.jpg" : (t.eye === "pink" || has("albino")) ? "milk-albino.jpg" : "milk-normal.jpg";
   } else if (body === "king") {
-    file = has("lavender") ? "king-lavender.jpg" : t.eye === "pink" || has("albino") ? "king-albino.jpg" : has("striped") ? "king-striped.jpg" : "king-normal.jpg";
+    file = has("striped") ? "king-striped.jpg" : has("lavender") ? "king-lavender.jpg" : has("hypo") ? "king-hypo.jpg" : (t.eye === "pink" || has("albino")) ? "king-albino.jpg" : "king-normal.jpg";
   } else if (body === "garter") {
-    file = has("melanistic") ? "garter-melanistic.jpg" : t.eye === "pink" ? "garter-albino.jpg" : "garter-normal.jpg";
+    if (has("albino") && has("anery")) file = "garter-snow.jpg";
+    else if (has("flame")) file = "garter-flame.jpg";
+    else if (has("anery")) file = "garter-anery.jpg";
+    else file = has("melanistic") ? "garter-melanistic.jpg" : (t.eye === "pink" || has("albino")) ? "garter-albino.jpg" : "garter-normal.jpg";
   } else if (body === "sand") {
-    file = t.eye === "pink" ? "sand-albino.jpg" : has("anery") ? "sand-anery.jpg" : "sand-normal.jpg";
+    if (has("albino") && has("anery")) file = "sand-snow.jpg";
+    else if (has("hypo")) file = "sand-hypo.jpg";
+    else file = t.eye === "pink" ? "sand-albino.jpg" : has("anery") ? "sand-anery.jpg" : "sand-normal.jpg";
   } else if (species === "Rosy Boa") {
-    file = t.eye === "pink" ? "rosy-albino.jpg" : "rosy-normal.jpg";
+    if (has("albino") && has("anery")) file = "rosy-snow.jpg";
+    else if (has("anery")) file = "rosy-anery.jpg";
+    else if (has("hypo")) file = "rosy-hypo.jpg";
+    else file = t.eye === "pink" ? "rosy-albino.jpg" : "rosy-normal.jpg";
   } else if (body === "boa") {
     file = has("jungle") || has("jungle-super") ? "boa-jungle.jpg" : t.eye === "pink" ? "boa-albino.jpg" : has("anery") ? "boa-anery.jpg" : "boa-normal.jpg";
   }
