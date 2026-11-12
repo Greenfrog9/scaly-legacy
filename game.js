@@ -201,10 +201,15 @@ function snakeImage(species, genes) {
     else if (species === "Southern Hognose") file = "southern-hognose-normal.jpg";
     else file = "hognose-normal.jpg";
   } else if (body === "corn") {
-    if (has("lavender")) file = "corn-lavender.jpg";
+    if (has("amel") && has("anery")) file = "corn-snow.jpg";
+    else if (has("lava")) file = "corn-lava.jpg";
+    else if (has("caramel")) file = "corn-caramel.jpg";
+    else if (has("hypo")) file = "corn-hypo.jpg";
+    else if (has("charcoal")) file = "corn-charcoal.jpg";
+    else if (has("lavender")) file = "corn-lavender.jpg";
     else if (has("stripe") || has("motley")) file = "corn-stripe.jpg";
     else if (t.eye === "pink" || has("amel")) file = "corn-albino.jpg";
-    else if (has("anery") || has("charcoal")) file = "corn-anery.jpg";
+    else if (has("anery")) file = "corn-anery.jpg";
     else file = "corn-normal.jpg";
   } else if (body === "python") {
     if (has("albino") && has("axanthic")) file = "childrens-snow.jpg";
@@ -235,7 +240,9 @@ function snakeImage(species, genes) {
     else if (has("hypo")) file = "rosy-hypo.jpg";
     else file = t.eye === "pink" ? "rosy-albino.jpg" : "rosy-normal.jpg";
   } else if (body === "boa") {
-    file = has("jungle") || has("jungle-super") ? "boa-jungle.jpg" : t.eye === "pink" ? "boa-albino.jpg" : has("anery") ? "boa-anery.jpg" : "boa-normal.jpg";
+    if (has("blood")) file = "boa-blood.jpg";
+    else if (has("leopard") || has("leopard-super")) file = "boa-leopard.jpg";
+    else file = has("jungle") || has("jungle-super") ? "boa-jungle.jpg" : t.eye === "pink" ? "boa-albino.jpg" : has("anery") ? "boa-anery.jpg" : "boa-normal.jpg";
   }
   return "images/" + file;
 }
